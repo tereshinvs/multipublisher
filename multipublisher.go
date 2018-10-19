@@ -37,7 +37,7 @@ func (this *MultiPublisher) Unsubscribe(c *<-chan interface{}) {
 
     pos := -1
     for i, subscriber := range this.subscribersOut {
-        if subscriber == c {
+        if *subscriber == *c {
             pos = i
             break
         }
