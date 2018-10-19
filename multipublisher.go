@@ -34,19 +34,14 @@ func (this *MultiPublisher) Unsubscribe(c *<-chan interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
-    pos := -1
-    for i, subscriber := range this.subscribers {
+    for pos, subscriber := range this.subscribers {
         if *subscriber == *c {
-            pos = i
+            close(*this.subscribers[pos])
+            copy(this.subscribers[pos:], this.subscribers[pos + 1:])
+            this.subscribers[len(this.subscribers) - 1] = nil
+            this.subscribers = this.subscribers[:len(this.subscribers) - 1]
             break
         }
-    }
-
-    if pos != -1 {
-        close(*this.subscribers[pos])
-        copy(this.subscribers[pos:], this.subscribers[pos + 1:])
-        this.subscribers[len(this.subscribers) - 1] = nil
-        this.subscribers = this.subscribers[:len(this.subscribers) - 1]
     }
 }
 
