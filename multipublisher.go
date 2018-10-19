@@ -10,13 +10,13 @@ type MultiPublisher struct {
     mutex sync.Mutex 
 }
 
-func createMultiPublisher(limit int) (publisher MultiPublisher) {
+func CreateMultiPublisher(limit int) (publisher MultiPublisher) {
     publisher.limit = limit
     publisher.in = make(chan<- interface{}, limit)
     return
 }
 
-func (this *MultiPublisher) subscribe() (outChan <-chan interface{}) {
+func (this *MultiPublisher) Subscribe() (outChan <-chan interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
@@ -31,7 +31,7 @@ func (this *MultiPublisher) subscribe() (outChan <-chan interface{}) {
     return
 }
 
-func (this *MultiPublisher) unsubscribe(c *<-chan interface{}) {
+func (this *MultiPublisher) Unsubscribe(c *<-chan interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
@@ -54,7 +54,7 @@ func (this *MultiPublisher) unsubscribe(c *<-chan interface{}) {
     }
 }
 
-func (this *MultiPublisher) push(value interface{}) {
+func (this *MultiPublisher) Push(value interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
@@ -63,7 +63,7 @@ func (this *MultiPublisher) push(value interface{}) {
     }
 }
 
-func (this *MultiPublisher) close() {
+func (this *MultiPublisher) Close() {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
