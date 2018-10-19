@@ -3,14 +3,15 @@ package multipublisher
 import "sync"
 
 type MultiPublisher struct {
+    closed bool
     limit int
     in chan<- interface{}
-    subscribersIn []*chan<- interface{}
-    subscribersOut []*<-chan interface{}
+    subscribers []*chan interface{}
     mutex sync.Mutex 
 }
 
 func CreateMultiPublisher(limit int) (publisher MultiPublisher) {
+    publisher.closed = false
     publisher.limit = limit
     publisher.in = make(chan<- interface{}, limit)
     return
@@ -20,14 +21,12 @@ func (this *MultiPublisher) Subscribe() (outChan <-chan interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
-    channel := make(chan interface{}, this.limit)
+    this.checkClosed()
 
-    var inChan chan<- interface{}
-    inChan = channel
+    channel := make(chan interface{}, this.limit)
     outChan = channel
 
-    this.subscribersIn = append(this.subscribersIn, &inChan)
-    this.subscribersOut = append(this.subscribersOut, &outChan)
+    this.subscribers = append(this.subscribers, &channel)
     return
 }
 
@@ -36,7 +35,7 @@ func (this *MultiPublisher) Unsubscribe(c *<-chan interface{}) {
     defer this.mutex.Unlock()
 
     pos := -1
-    for i, subscriber := range this.subscribersOut {
+    for i, subscriber := range this.subscribers {
         if *subscriber == *c {
             pos = i
             break
@@ -44,13 +43,10 @@ func (this *MultiPublisher) Unsubscribe(c *<-chan interface{}) {
     }
 
     if pos != -1 {
-        copy(this.subscribersIn[pos:], this.subscribersIn[pos + 1:])
-        this.subscribersIn[len(this.subscribersIn) - 1] = nil
-        this.subscribersIn = this.subscribersIn[:len(this.subscribersIn) - 1]
-
-        copy(this.subscribersOut[pos:], this.subscribersOut[pos + 1:])
-        this.subscribersOut[len(this.subscribersOut) - 1] = nil
-        this.subscribersOut = this.subscribersOut[:len(this.subscribersOut) - 1]
+        close(*this.subscribers[pos])
+        copy(this.subscribers[pos:], this.subscribers[pos + 1:])
+        this.subscribers[len(this.subscribers) - 1] = nil
+        this.subscribers = this.subscribers[:len(this.subscribers) - 1]
     }
 }
 
@@ -58,7 +54,9 @@ func (this *MultiPublisher) Push(value interface{}) {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
-    for _, c := range this.subscribersIn {
+    this.checkClosed()
+
+    for _, c := range this.subscribers {
         (*c) <- value
     }
 }
@@ -67,7 +65,18 @@ func (this *MultiPublisher) Close() {
     this.mutex.Lock()
     defer this.mutex.Unlock()
 
-    for _, c := range this.subscribersIn {
+    this.checkClosed()
+    this.closed = true
+
+    for _, c := range this.subscribers {
         close(*c)
-    }    
+    }
+    this.subscribers = this.subscribers[:0]
 }
+
+func (this *MultiPublisher) checkClosed() {
+    if this.closed {
+        panic("Publisher is closed")
+    }
+}
+
